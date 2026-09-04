@@ -431,12 +431,8 @@ public:
 
         object->m_zLayer = static_cast<ZLayer>(getValue<int>(24));
         object->m_zOrder = getValue<int>(25);
-        // these two live on EffectGameObject in current bindings, not GameObject -- cast needed
-        // (the original code wrote these unconditionally on every object regardless of its
-        // real dynamic type, same as the other EffectGameObject-only writes below, so keeping
-        // that same unconditional pattern here rather than guarding it)
-        reinterpret_cast<EffectGameObject*>(object)->m_rotationSpeed = getValue<int>(97);
-        reinterpret_cast<EffectGameObject*>(object)->m_disableRotation = getValue<bool>(98);
+        object->m_rotationSpeed = getValue<int>(97);
+        object->m_disableRotation = getValue<bool>(98);
         object->m_linkedGroup = getValue<int>(108);
         object->m_isHighDetail = getValue<bool>(103);
         object->m_hasGroupParent = getValue<bool>(34);
@@ -450,8 +446,8 @@ public:
         object->m_hasNoGlow = getValue<bool>(96);
 
         //if (object->animatedCircle) { // too lazy and it doesn't matter
-            reinterpret_cast<EffectGameObject*>(object)->m_animationRandomizedStart = getValue<bool>(106);
-            reinterpret_cast<EffectGameObject*>(object)->m_animationSpeed = getValue<float>(107);
+            object->m_animationRandomizedStart = getValue<bool>(106);
+            object->m_animationSpeed = getValue<float>(107);
         //}
 
 
@@ -469,29 +465,23 @@ public:
         if (size != 0) {
             // optimization mod            
             size = (size == 1.0 ? size : assumption_round(size*100)/100.0);
-            // m_scale (single unified field) was split into m_scaleX/m_scaleY
-            object->m_scaleX = size;
-            object->m_scaleY = size;
+            object->m_scale = size;
             object->setRScale(1.0);
 
             object->m_isObjectRectDirty = true;
-            // m_textureRectDirty no longer exists as a separate flag -- m_isObjectRectDirty
-            // above appears to be the sole remaining dirty flag now, so this is dropped
-            // rather than guessed at.
+            object->m_textureRectDirty = true;
         }
 
         switch (objectID) {
             case 914:
-                // updateTextObject moved to the TextGameObject subclass
-                reinterpret_cast<TextGameObject*>(object)->updateTextObject(LevelTools::base64DecodeString(getValue(31)), false);
+                object->updateTextObject(LevelTools::base64DecodeString(getValue(31)), false);
                 break;
             case 142:
-                // m_secretCoinID lives on EffectGameObject in current bindings
-                reinterpret_cast<EffectGameObject*>(object)->m_secretCoinID = getValue<int>(12);
+                object->m_secretCoinID = getValue<int>(12);
                 break;
             case 31:
-                reinterpret_cast<StartPosObject*>(object)->m_startSettings = LevelSettingsObject::objectFromDict(startPosString());
-                reinterpret_cast<StartPosObject*>(object)->m_startSettings->retain();
+                reinterpret_cast<StartPosObject*>(object)->m_levelSettings = LevelSettingsObject::objectFromDict(startPosString());
+                reinterpret_cast<StartPosObject*>(object)->m_levelSettings->retain();
                 break;
             case 200:
             case 201:
@@ -503,7 +493,7 @@ public:
             case 47:
             case 111:
             case 13:
-                reinterpret_cast<EffectGameObject*>(object)->m_shouldPreview = getValue<bool>(13);
+                object->m_shouldPreview = getValue<bool>(13);
                 break;
             case 747:
                 reinterpret_cast<TeleportPortalObject*>(object)->m_teleportYOffset = getValue<float>(54);
@@ -511,36 +501,31 @@ public:
                 break;
         }
 
-        reinterpret_cast<EffectGameObject*>(object)->m_isMultiActivate = getValue<bool>(99);
+        object->m_isMultiActivate = getValue<bool>(99);
         object->customSetup();
 
         if (typeinfo_cast<EffectGameObject*>(object)) {
             setupEffectGameObject(reinterpret_cast<EffectGameObject*>(object));
         }
 
-        // addGlow/addColorSprite/setupCustomSprites now require an explicit frame name argument
-        // (previously callable with no args); passing "" as the best-effort equivalent of
-        // whatever the old implicit default was -- unconfirmed, worth an eye in testing.
-        object->addGlow("");
-        object->addColorSprite("");
-        object->setupCustomSprites("");
+        object->addGlow();
+        object->addColorSprite();
+        object->setupCustomSprites();
 
         object->setFlipX(object->m_startFlipX);
         object->setFlipY(object->m_startFlipY);
 
-        // m_rotation (single unified field) no longer exists on GameObject -- using a local
-        // variable instead, since nothing else in the file reads this field back
-        float rotation = getValue<float>(6);
+        object->m_rotation = getValue<float>(6);
 
         auto type = static_cast<int>(object->m_objectType);
         if (type == 0 || type == 21 || type == 25) {
-            rotation = assumption_floor(rotation / 90.0) * 90.0;
+            object->m_rotation = assumption_floor(object->m_rotation / 90.0) * 90.0;
         } else if (type == 36) {
             reinterpret_cast<RingObject*>(object)->m_targetGroupID = getValue<int>(51);
             reinterpret_cast<RingObject*>(object)->m_activateGroup = getValue<bool>(56);
         }
 
-        object->setRotation(rotation);
+        object->setRotation(object->m_rotation);
         object->setStartPos(ccp(getValue<float>(2), getValue<float>(3)+90.0f));
         object->getObjectTextureRect();
 
@@ -625,7 +610,7 @@ public:
     }
 };
 
-class $modify(MenuLayer) {
+class $(MenuLayer) {
     bool init() {
         MenuLayer::init();
 
@@ -683,10 +668,7 @@ public:
             for (auto& factory : factories) {
                 GameObject* object = factory.generate();
 
-                // GJLevelType has no "Local" value in current bindings; "Editor" is the
-                // closest semantic match (a level currently being edited/tested, as opposed
-                // to Main/Saved/SearchResult) -- best-effort, not confirmed against source.
-                if (!object || (m_level->m_levelType != GJLevelType::Editor && object->m_objectType == GameObjectType::SecretCoin))
+                if (!object || (m_level->m_levelType != GJLevelType::Local && object->m_objectType == GameObjectType::SecretCoin))
                     continue;
 
                 if (object->m_objectType == GameObjectType::UserCoin && coins.size() < 3)
@@ -701,20 +683,14 @@ public:
                 });
 
                 for (int i = 0; i < coins.size(); ++i) {
-                    reinterpret_cast<EffectGameObject*>(coins[i])->m_secretCoinID = i + 1;
-                    // setupCoinArt() has no equivalent anywhere in current bindings (genuine
-                    // gap, not a rename). Left out rather than guessed -- likely means coin
-                    // sprites won't get their per-coin visual variant applied.
-                    // coins[i]->setupCoinArt();
+                    coins[i]->m_secretCoinID = i + 1;
+                    coins[i]->setupCoinArt();
                 }
             }
         }
 
         float screenEnd = CCDirector::sharedDirector()->getScreenRight() + 300;
-        // m_realLevelLength no longer exists as a separate field -- only m_levelLength remains,
-        // so reading from it too (rather than a distinct "real" value) is the closest available
-        // equivalent; best-effort, not confirmed.
-        m_levelLength = fmax(screenEnd, m_levelLength + 340);
+        m_levelLength = fmax(screenEnd, m_realLevelLength + 340);
 
         m_endPortal = EndPortalObject::create();
         m_endPortal->setStartPos(ccp(m_levelLength, 225.0));
@@ -725,17 +701,13 @@ public:
         m_endPortal->updateColors(m_player1->m_playerColor1);
         m_endPortal->setVisible(false);
 
-        // m_spawnObjects2 (a CCArray with addObject) is now called m_spawnObjectsArray
-        m_spawnObjectsArray->addObject(m_endPortal);
-        // calculateSpawnXPos() has no equivalent in current bindings; EndPortalObject now
-        // exposes getSpawnPos() (a plain getter) instead of an explicit "calculate and cache"
-        // call, which suggests the value may just be computed on demand now rather than
-        // needing to be precomputed here. Dropped rather than guessed at.
-        // m_endPortal->calculateSpawnXPos();
+        m_spawnObjects2->addObject(m_endPortal);
+        m_endPortal->calculateSpawnXPos();
 
-        // The raw SpeedObject type and manual sort are gone; Geode now exposes GD's own
-        // sorting logic directly, so using that instead of guessing at the removed type's
-        // layout.
-        LevelTools::sortSpeedObjects(m_speedObjects, this);
+        auto ptr = reinterpret_cast<SpeedObject**>(m_speedObjects->data->arr);
+
+        std::sort(ptr, ptr + m_speedObjects->count(), [](SpeedObject* a, SpeedObject* b) {
+            return a->m_xPos < b->m_xPos;
+        });
     }
 };
