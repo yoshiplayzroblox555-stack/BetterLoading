@@ -625,7 +625,7 @@ public:
     }
 };
 
-class $(MenuLayer) {
+class $modify(MenuLayer) {
     bool init() {
         MenuLayer::init();
 
@@ -683,7 +683,10 @@ public:
             for (auto& factory : factories) {
                 GameObject* object = factory.generate();
 
-                if (!object || (m_level->m_levelType != GJLevelType::Local && object->m_objectType == GameObjectType::SecretCoin))
+                // GJLevelType has no "Local" value in current bindings; "Editor" is the
+                // closest semantic match (a level currently being edited/tested, as opposed
+                // to Main/Saved/SearchResult) -- best-effort, not confirmed against source.
+                if (!object || (m_level->m_levelType != GJLevelType::Editor && object->m_objectType == GameObjectType::SecretCoin))
                     continue;
 
                 if (object->m_objectType == GameObjectType::UserCoin && coins.size() < 3)
@@ -698,14 +701,20 @@ public:
                 });
 
                 for (int i = 0; i < coins.size(); ++i) {
-                    coins[i]->m_secretCoinID = i + 1;
-                    coins[i]->setupCoinArt();
+                    reinterpret_cast<EffectGameObject*>(coins[i])->m_secretCoinID = i + 1;
+                    // setupCoinArt() has no equivalent anywhere in current bindings (genuine
+                    // gap, not a rename). Left out rather than guessed -- likely means coin
+                    // sprites won't get their per-coin visual variant applied.
+                    // coins[i]->setupCoinArt();
                 }
             }
         }
 
         float screenEnd = CCDirector::sharedDirector()->getScreenRight() + 300;
-        m_levelLength = fmax(screenEnd, m_realLevelLength + 340);
+        // m_realLevelLength no longer exists as a separate field -- only m_levelLength remains,
+        // so reading from it too (rather than a distinct "real" value) is the closest available
+        // equivalent; best-effort, not confirmed.
+        m_levelLength = fmax(screenEnd, m_levelLength + 340);
 
         m_endPortal = EndPortalObject::create();
         m_endPortal->setStartPos(ccp(m_levelLength, 225.0));
@@ -716,13 +725,17 @@ public:
         m_endPortal->updateColors(m_player1->m_playerColor1);
         m_endPortal->setVisible(false);
 
-        m_spawnObjects2->addObject(m_endPortal);
-        m_endPortal->calculateSpawnXPos();
+        // m_spawnObjects2 (a CCArray with addObject) is now called m_spawnObjectsArray
+        m_spawnObjectsArray->addObject(m_endPortal);
+        // calculateSpawnXPos() has no equivalent in current bindings; EndPortalObject now
+        // exposes getSpawnPos() (a plain getter) instead of an explicit "calculate and cache"
+        // call, which suggests the value may just be computed on demand now rather than
+        // needing to be precomputed here. Dropped rather than guessed at.
+        // m_endPortal->calculateSpawnXPos();
 
-        auto ptr = reinterpret_cast<SpeedObject**>(m_speedObjects->data->arr);
-
-        std::sort(ptr, ptr + m_speedObjects->count(), [](SpeedObject* a, SpeedObject* b) {
-            return a->m_xPos < b->m_xPos;
-        });
+        // The raw SpeedObject type and manual sort are gone; Geode now exposes GD's own
+        // sorting logic directly, so using that instead of guessing at the removed type's
+        // layout.
+        LevelTools::sortSpeedObjects(m_speedObjects, this);
     }
 };
