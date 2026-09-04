@@ -99,7 +99,10 @@ class MyGameObject : public GameObject {
            auto frame = quickFrameCache.at(frameName);
            setDisplayFrame(frame);
 
-           m_textureName = std::move(frameName);
+           // m_textureName isn't a real field in any Geode binding version we could find
+           // (old or current) -- likely a private/undocumented offset the original author
+           // knew from their own reverse engineering, not from public bindings. Nothing else
+           // in this mod reads it back, so it's dropped here rather than guessing a raw offset.
        }
 };
 

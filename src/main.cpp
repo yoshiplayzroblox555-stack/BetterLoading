@@ -167,40 +167,43 @@ public:
     }
 
     void setupEffectGameObject(EffectGameObject* object) {
-        object->m_touchTriggered = getValue<bool>(11);
-        object->m_spawnTriggered = getValue<bool>(62);
-        object->m_multiTrigger = getValue<bool>(87);
-        object->m_itemBlockAID = getValue<int>(80);
+        object->m_isTouchTriggered = getValue<bool>(11);
+        object->m_isSpawnTriggered = getValue<bool>(62);
+        object->m_isMultiTriggered = getValue<bool>(87);
+        object->m_itemID = getValue<int>(80);
 
         switch (object->m_objectID) {
             case 901:
                 object->m_easingRate = getValue<float>(85);
                 object->m_targetGroupID = getValue<int>(51);
-                object->m_move = ccp(getValue<int>(28), getValue<int>(29));
+                object->m_moveOffset = ccp(getValue<int>(28), getValue<int>(29));
                 object->m_duration = getValue<float>(10);
                 object->m_easingType = static_cast<EasingType>(getValue<int>(30));
                 object->m_lockToPlayerX = getValue<bool>(58);
                 object->m_lockToPlayerY = getValue<bool>(59);
-                object->m_useTarget = getValue<bool>(100);
+                object->m_useMoveTarget = getValue<bool>(100);
                 object->m_centerGroupID = getValue<int>(71);
-                object->m_moveTargetType = static_cast<MoveTargetType>(getValue<int>(101));
+                object->m_moveTargetMode = static_cast<MoveTargetType>(getValue<int>(101));
                 break;
             case 1006:
                 object->m_targetGroupID = getValue<int>(51);
-                object->m_fadeInTime = getValue<float>(45);
-                object->m_holdTime = getValue<float>(46);
-                object->m_fadeOutTime = getValue<float>(47);
-                object->m_pulseHSVMode = getValue<int>(48);
+                object->m_fadeInDuration = getValue<float>(45);
+                object->m_holdDuration = getValue<float>(46);
+                object->m_fadeOutDuration = getValue<float>(47);
+                object->m_pulseMode = getValue<int>(48);
                 object->m_pulseMainOnly = getValue<bool>(65);
                 object->m_pulseDetailOnly = getValue<bool>(66);
-                object->m_pulseGroupMode = getValue<int>(52);
+                object->m_pulseTargetType = getValue<int>(52);
                 object->m_pulseExclusive = getValue<int>(86);
 
-                if (object->m_pulseHSVMode) {
+                if (object->m_pulseMode) {
                     object->m_hsvValue = hsvFromString(getValue(49));
                     object->m_copyColorID = getValue<int>(50);
                 } else {
-                    object->m_colColor = ccc3(getValue<int>(7), getValue<int>(8), getValue<int>(9));
+                    // best-effort rename: no property-tagged 7/8/9 color field remains on
+                    // EffectGameObject in current bindings; m_triggerTargetColor is the
+                    // same-typed (ccColor3B) field that semantically matches "trigger's own color"
+                    object->m_triggerTargetColor = ccc3(getValue<int>(7), getValue<int>(8), getValue<int>(9));
                 }
 
                 object->m_duration = getValue<float>(10);
@@ -217,14 +220,17 @@ public:
                 break;
             case 1268:
                 object->m_targetGroupID = getValue<int>(51);
-                object->m_spawnDelay = getValue<float>(63);
-                object->m_editorDisabled = getValue<bool>(102);
+                // m_spawnDelay moved to the SpawnTriggerGameObject subclass in current bindings
+                reinterpret_cast<SpawnTriggerGameObject*>(object)->m_spawnDelay = getValue<float>(63);
+                object->m_previewDisable = getValue<bool>(102);
                 break;
             case 1275:
                 object->m_targetGroupID = getValue<int>(51);
                 object->m_subtractCount = getValue<bool>(78);
-                object->m_pickupMode = getValue<int>(79);
-                object->m_itemBlockAID = getValue<int>(80);
+                // TODO: property 79 (pickup mode) has no name in current public Geode bindings.
+                // Left unset rather than guessing at an offset/cast that could be wrong.
+                // object->m_pickupMode = getValue<int>(79);
+                object->m_itemID = getValue<int>(80);
                 object->m_activateGroup = getValue<bool>(56);
                 break;
             case 1346:
@@ -262,7 +268,7 @@ public:
                 object->m_touchDualMode = getValue<int>(89);
                 break;
             case 1611:
-                object->m_itemBlockAID = getValue<int>(80);
+                object->m_itemID = getValue<int>(80);
                 object->m_targetGroupID = getValue<int>(51);
                 object->m_targetCount = getValue<int>(77);
                 object->m_activateGroup = getValue<bool>(56);
@@ -277,12 +283,13 @@ public:
             case 1614:
                 object->m_targetGroupID = getValue<int>(51);
                 object->m_subtractCount = getValue<bool>(78);
-                object->m_pickupMode = getValue<int>(79);
-                object->m_itemBlockAID = getValue<int>(80);
+                // TODO: property 79 (pickup mode) has no name in current public Geode bindings.
+                // object->m_pickupMode = getValue<int>(79);
+                object->m_itemID = getValue<int>(80);
                 object->m_activateGroup = getValue<bool>(56);
                 break;
             case 1811:
-                object->m_itemBlockAID = getValue<int>(80);
+                object->m_itemID = getValue<int>(80);
                 object->m_targetGroupID = getValue<int>(51);
                 object->m_targetCount = getValue<int>(77);
                 object->m_comparisonType = static_cast<ComparisonType>(getValue<int>(88));
@@ -301,7 +308,7 @@ public:
                 object->m_duration = getValue<float>(10);
                 break;
             case 1815:
-                object->m_itemBlockAID = getValue<int>(80);
+                object->m_itemID = getValue<int>(80);
                 object->m_blockBID = getValue<int>(95);
                 object->m_targetGroupID = getValue<int>(51);
                 object->m_duration = getValue<float>(10);
@@ -309,11 +316,11 @@ public:
                 object->m_activateGroup = getValue<bool>(56);
                 break;
             case 1816:
-                object->m_itemBlockAID = getValue<int>(80);
+                object->m_itemID = getValue<int>(80);
                 object->m_dynamicBlock = getValue<bool>(94);
                 break;
             case 1817:
-                object->m_itemBlockAID = getValue<int>(80);
+                object->m_itemID = getValue<int>(80);
                 object->m_targetCount = getValue<int>(77);
                 break;
 
