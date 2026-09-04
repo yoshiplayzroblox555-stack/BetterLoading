@@ -430,12 +430,12 @@ public:
         loadGroups(object, getValue(57));
 
         object->m_zLayer = static_cast<ZLayer>(getValue<int>(24));
-        object->m_gameZOrder = getValue<int>(25);
-        object->m_customRotateSpeed = getValue<int>(97);
-        object->m_sawIsDisabled = getValue<bool>(98);
+        object->m_zOrder = getValue<int>(25);
+        object->m_rotationSpeed = getValue<int>(97);
+        object->m_disableRotation = getValue<bool>(98);
         object->m_linkedGroup = getValue<int>(108);
-        object->m_highDetail = getValue<bool>(103);
-        object->m_isGroupParent = getValue<bool>(34);
+        object->m_isHighDetail = getValue<bool>(103);
+        object->m_hasGroupParent = getValue<bool>(34);
         object->m_isDontFade = getValue<bool>(64);
         object->m_isDontEnter = getValue<bool>(67);
         object->m_startFlipX = getValue<bool>(4);
@@ -443,11 +443,11 @@ public:
 
         object->m_editorLayer = getValue<int>(20);
         object->m_editorLayer2 = getValue<int>(61);
-        object->m_isGlowDisabled = getValue<bool>(96);
+        object->m_hasNoGlow = getValue<bool>(96);
 
         //if (object->animatedCircle) { // too lazy and it doesn't matter
-            object->m_randomisedAnimStart = getValue<bool>(106);
-            object->m_animSpeed = getValue<float>(107);
+            object->m_animationRandomizedStart = getValue<bool>(106);
+            object->m_animationSpeed = getValue<float>(107);
         //}
 
 
@@ -493,7 +493,7 @@ public:
             case 47:
             case 111:
             case 13:
-                object->m_showGamemodeBorders = getValue<bool>(13);
+                object->m_shouldPreview = getValue<bool>(13);
                 break;
             case 747:
                 reinterpret_cast<TeleportPortalObject*>(object)->m_teleportYOffset = getValue<float>(54);
@@ -501,7 +501,7 @@ public:
                 break;
         }
 
-        object->m_orbMultiActivate = getValue<bool>(99);
+        object->m_isMultiActivate = getValue<bool>(99);
         object->customSetup();
 
         if (typeinfo_cast<EffectGameObject*>(object)) {
