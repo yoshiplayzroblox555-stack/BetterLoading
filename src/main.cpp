@@ -431,8 +431,12 @@ public:
 
         object->m_zLayer = static_cast<ZLayer>(getValue<int>(24));
         object->m_zOrder = getValue<int>(25);
-        object->m_rotationSpeed = getValue<int>(97);
-        object->m_disableRotation = getValue<bool>(98);
+        // these two live on EffectGameObject in current bindings, not GameObject -- cast needed
+        // (the original code wrote these unconditionally on every object regardless of its
+        // real dynamic type, same as the other EffectGameObject-only writes below, so keeping
+        // that same unconditional pattern here rather than guarding it)
+        reinterpret_cast<EffectGameObject*>(object)->m_rotationSpeed = getValue<int>(97);
+        reinterpret_cast<EffectGameObject*>(object)->m_disableRotation = getValue<bool>(98);
         object->m_linkedGroup = getValue<int>(108);
         object->m_isHighDetail = getValue<bool>(103);
         object->m_hasGroupParent = getValue<bool>(34);
@@ -446,8 +450,8 @@ public:
         object->m_hasNoGlow = getValue<bool>(96);
 
         //if (object->animatedCircle) { // too lazy and it doesn't matter
-            object->m_animationRandomizedStart = getValue<bool>(106);
-            object->m_animationSpeed = getValue<float>(107);
+            reinterpret_cast<EffectGameObject*>(object)->m_animationRandomizedStart = getValue<bool>(106);
+            reinterpret_cast<EffectGameObject*>(object)->m_animationSpeed = getValue<float>(107);
         //}
 
 
@@ -465,23 +469,29 @@ public:
         if (size != 0) {
             // optimization mod            
             size = (size == 1.0 ? size : assumption_round(size*100)/100.0);
-            object->m_scale = size;
+            // m_scale (single unified field) was split into m_scaleX/m_scaleY
+            object->m_scaleX = size;
+            object->m_scaleY = size;
             object->setRScale(1.0);
 
             object->m_isObjectRectDirty = true;
-            object->m_textureRectDirty = true;
+            // m_textureRectDirty no longer exists as a separate flag -- m_isObjectRectDirty
+            // above appears to be the sole remaining dirty flag now, so this is dropped
+            // rather than guessed at.
         }
 
         switch (objectID) {
             case 914:
-                object->updateTextObject(LevelTools::base64DecodeString(getValue(31)), false);
+                // updateTextObject moved to the TextGameObject subclass
+                reinterpret_cast<TextGameObject*>(object)->updateTextObject(LevelTools::base64DecodeString(getValue(31)), false);
                 break;
             case 142:
-                object->m_secretCoinID = getValue<int>(12);
+                // m_secretCoinID lives on EffectGameObject in current bindings
+                reinterpret_cast<EffectGameObject*>(object)->m_secretCoinID = getValue<int>(12);
                 break;
             case 31:
-                reinterpret_cast<StartPosObject*>(object)->m_levelSettings = LevelSettingsObject::objectFromDict(startPosString());
-                reinterpret_cast<StartPosObject*>(object)->m_levelSettings->retain();
+                reinterpret_cast<StartPosObject*>(object)->m_startSettings = LevelSettingsObject::objectFromDict(startPosString());
+                reinterpret_cast<StartPosObject*>(object)->m_startSettings->retain();
                 break;
             case 200:
             case 201:
@@ -493,7 +503,7 @@ public:
             case 47:
             case 111:
             case 13:
-                object->m_shouldPreview = getValue<bool>(13);
+                reinterpret_cast<EffectGameObject*>(object)->m_shouldPreview = getValue<bool>(13);
                 break;
             case 747:
                 reinterpret_cast<TeleportPortalObject*>(object)->m_teleportYOffset = getValue<float>(54);
@@ -501,31 +511,36 @@ public:
                 break;
         }
 
-        object->m_isMultiActivate = getValue<bool>(99);
+        reinterpret_cast<EffectGameObject*>(object)->m_isMultiActivate = getValue<bool>(99);
         object->customSetup();
 
         if (typeinfo_cast<EffectGameObject*>(object)) {
             setupEffectGameObject(reinterpret_cast<EffectGameObject*>(object));
         }
 
-        object->addGlow();
-        object->addColorSprite();
-        object->setupCustomSprites();
+        // addGlow/addColorSprite/setupCustomSprites now require an explicit frame name argument
+        // (previously callable with no args); passing "" as the best-effort equivalent of
+        // whatever the old implicit default was -- unconfirmed, worth an eye in testing.
+        object->addGlow("");
+        object->addColorSprite("");
+        object->setupCustomSprites("");
 
         object->setFlipX(object->m_startFlipX);
         object->setFlipY(object->m_startFlipY);
 
-        object->m_rotation = getValue<float>(6);
+        // m_rotation (single unified field) no longer exists on GameObject -- using a local
+        // variable instead, since nothing else in the file reads this field back
+        float rotation = getValue<float>(6);
 
         auto type = static_cast<int>(object->m_objectType);
         if (type == 0 || type == 21 || type == 25) {
-            object->m_rotation = assumption_floor(object->m_rotation / 90.0) * 90.0;
+            rotation = assumption_floor(rotation / 90.0) * 90.0;
         } else if (type == 36) {
             reinterpret_cast<RingObject*>(object)->m_targetGroupID = getValue<int>(51);
             reinterpret_cast<RingObject*>(object)->m_activateGroup = getValue<bool>(56);
         }
 
-        object->setRotation(object->m_rotation);
+        object->setRotation(rotation);
         object->setStartPos(ccp(getValue<float>(2), getValue<float>(3)+90.0f));
         object->getObjectTextureRect();
 
