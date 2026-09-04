@@ -240,7 +240,7 @@ public:
                 object->m_easingType = static_cast<EasingType>(getValue<int>(30));
 
                 object->m_easingRate = getValue<float>(85);
-                object->m_rotateDegrees = getValue<int>(68);
+                object->m_rotationDegrees = getValue<int>(68);
                 object->m_times360 = getValue<int>(69);
                 object->m_lockObjectRotation = getValue<bool>(70);
                 break;
@@ -248,8 +248,12 @@ public:
                 object->m_targetGroupID = getValue<int>(51);
                 object->m_centerGroupID = getValue<int>(71);
                 object->m_duration = getValue<float>(10);
-                object->m_followMod = ccp(getValue<float>(72), getValue<float>(73));
-                object->UndocuementedLevelProperty74 = getValue<bool>(74);
+                // m_followMod (CCPoint) split into two separate floats in current bindings
+                object->m_followXMod = getValue<float>(72);
+                object->m_followYMod = getValue<float>(73);
+                // TODO: property 74 is still undocumented in current public Geode bindings
+                // (it was already unnamed -- "UndocuementedLevelProperty74" -- in the original)
+                // object->UndocuementedLevelProperty74 = getValue<bool>(74);
                 break;
             case 1520:
                 object->m_duration = getValue<float>(10);
@@ -264,15 +268,16 @@ public:
                 object->m_targetGroupID = getValue<int>(51);
                 object->m_activateGroup = getValue<bool>(56);
                 object->m_touchHoldMode = getValue<bool>(81);
-                object->m_touchToggleMode = static_cast<TouchToggleMode>(getValue<int>(82));
-                object->m_touchDualMode = getValue<int>(89);
+                object->m_touchToggleMode = static_cast<TouchTriggerType>(getValue<int>(82));
+                object->m_isDualMode = getValue<bool>(89);
                 break;
             case 1611:
                 object->m_itemID = getValue<int>(80);
                 object->m_targetGroupID = getValue<int>(51);
-                object->m_targetCount = getValue<int>(77);
+                // m_targetCount/m_multiActivate moved to the CountTriggerGameObject subclass
+                reinterpret_cast<CountTriggerGameObject*>(object)->m_pickupCount = getValue<int>(77);
                 object->m_activateGroup = getValue<bool>(56);
-                object->m_multiActivate = getValue<bool>(104);
+                reinterpret_cast<CountTriggerGameObject*>(object)->m_multiActivate = getValue<bool>(104);
                 break;
             case 1616:
                 object->m_targetGroupID = getValue<int>(51);
@@ -291,8 +296,10 @@ public:
             case 1811:
                 object->m_itemID = getValue<int>(80);
                 object->m_targetGroupID = getValue<int>(51);
-                object->m_targetCount = getValue<int>(77);
-                object->m_comparisonType = static_cast<ComparisonType>(getValue<int>(88));
+                // m_targetCount/m_comparisonType moved to the CountTriggerGameObject subclass;
+                // the field is a plain int now (no more ComparisonType enum on it)
+                reinterpret_cast<CountTriggerGameObject*>(object)->m_pickupCount = getValue<int>(77);
+                reinterpret_cast<CountTriggerGameObject*>(object)->m_pickupTriggerMode = getValue<int>(88);
                 object->m_activateGroup = getValue<bool>(56);
                 break;
             case 1812:
@@ -309,7 +316,7 @@ public:
                 break;
             case 1815:
                 object->m_itemID = getValue<int>(80);
-                object->m_blockBID = getValue<int>(95);
+                object->m_itemID2 = getValue<int>(95);
                 object->m_targetGroupID = getValue<int>(51);
                 object->m_duration = getValue<float>(10);
                 object->m_triggerOnExit = getValue<bool>(93);
@@ -317,11 +324,11 @@ public:
                 break;
             case 1816:
                 object->m_itemID = getValue<int>(80);
-                object->m_dynamicBlock = getValue<bool>(94);
+                object->m_isDynamicBlock = getValue<bool>(94);
                 break;
             case 1817:
                 object->m_itemID = getValue<int>(80);
-                object->m_targetCount = getValue<int>(77);
+                reinterpret_cast<CountTriggerGameObject*>(object)->m_pickupCount = getValue<int>(77);
                 break;
 
             default:
@@ -329,18 +336,25 @@ public:
         }
 
         if (object->m_objectID == 105 || object->m_objectID < 31 || (743 < object->m_objectID && object->m_objectID < 901) || object->m_objectID == 915) {
-            object->m_colColor = ccc3(getValue<int>(7), getValue<int>(8), getValue<int>(9));
+            // Properties 7/8/9 have no property-tagged field anywhere in current bindings
+            // (same gap as the pulse-trigger color case above). Best-effort inferred mapping:
+            // GJSpriteColor::m_customColor + m_usesCustomBlend is the only field pair with a
+            // matching shape (explicit RGB override + a flag to use it) on m_baseColor. Not
+            // confirmed by a property comment like the others -- flagging this one for extra
+            // scrutiny when testing in-game.
+            object->m_baseColor->m_customColor = ccc3(getValue<int>(7), getValue<int>(8), getValue<int>(9));
+            object->m_baseColor->m_usesCustomBlend = true;
             object->m_duration = getValue<float>(10);
 
             object->m_tintGround = getValue<bool>(14);
-            object->m_playerColor1 = getValue<bool>(15);
-            object->m_playerColor2 = getValue<bool>(16);
-            object->m_blending = getValue<bool>(17);
+            object->m_usesPlayerColor1 = getValue<bool>(15);
+            object->m_usesPlayerColor2 = getValue<bool>(16);
+            object->m_usesBlending = getValue<bool>(17);
             object->m_copyOpacity = getValue<bool>(60);
 
             int targetCol = getValue<int>(23);
             if (targetCol > 1) {
-                object->m_targetColorID = targetCol;
+                object->m_targetColor = targetCol;
             }
 
             object->m_opacity = getValue<bool>(36) ? getValue<float>(35) : 1.0f;
@@ -349,7 +363,7 @@ public:
             object->m_copyColorID = getValue<int>(50);
 
             if (object->m_objectID < 31 || object->m_objectID == 105 || object->m_objectID == 900) {
-                object->m_blending = false;
+                object->m_usesBlending = false;
                 object->m_opacity = 1.0;
             }
         }
@@ -517,19 +531,19 @@ public:
 
         switch (idBeforeSwap) {
             case 743:
-                object->m_targetColorID = 4;
+                object->m_targetColor = 4;
                 break;
             case 718:
-                object->m_targetColorID = 3;
+                object->m_targetColor = 3;
                 break;
             case 717:
-                object->m_targetColorID = 2;
+                object->m_targetColor = 2;
                 break;
             case 221:
-                object->m_targetColorID = 1;
+                object->m_targetColor = 1;
                 break;
             case 104:
-                reinterpret_cast<EffectGameObject*>(object)->m_blending = true;
+                reinterpret_cast<EffectGameObject*>(object)->m_usesBlending = true;
                 break;
         }
 
